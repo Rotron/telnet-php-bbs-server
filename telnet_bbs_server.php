@@ -66,36 +66,49 @@ class Server
         }
     }
 
-    private function handleIncomingConnections()
-    {
-        $read = $this->clients;
-        $read[] = $this->serverSocket;
+private function handleIncomingConnections()
+{
+    $read = $this->clients;
+    $read[] = $this->serverSocket;
 
-        if (stream_select($read, $write, $except, 0) === false) {
-            die("Error in stream_select()\n");
-        }
-
-        if (in_array($this->serverSocket, $read)) {
-            $newClient = stream_socket_accept($this->serverSocket);
-            $this->clients[] = new Client($newClient, $this->pdo);
-            echo "New client connected\n";
-            $this->sendBannerMessage($newClient);
-            unset($read[array_search($this->serverSocket, $read)]);
-        }
+    if (false === ($numChangedStreams = @stream_select($read, $write, $except, 0))) {
+        die("Error in stream_select()\n");
     }
 
-    private function handleClientInteractions()
-    {
-        foreach ($this->clients as $key => $client) {
-            $input = rtrim(fgets($client->getSocket(), 1024));
+    if ($numChangedStreams > 0) {
+        if (in_array($this->serverSocket, $read)) {
+            if (false !== ($newClient = @stream_socket_accept($this->serverSocket))) {
+                $this->clients[] = new Client($newClient, $this->pdo);
+                echo "New client connected\n";
+                $this->sendBannerMessage($newClient);
+                unset($read[array_search($this->serverSocket, $read)]);
+            } else {
+                echo "Error accepting new client\n";
+            }
+        }
+    }
+}
 
+private function handleClientInteractions()
+{
+    foreach ($this->clients as $key => $client) {
+        $socket = $client->getSocket();
+        if (is_resource($socket) && !feof($socket)) {
+            $input = rtrim(fgets($socket, 1024));
             if ($client->isAuthenticated()) {
                 $this->handleAuthenticatedClientInput($client, $input);
             } else {
                 $this->handleUnauthenticatedClientInput($client, $input);
             }
+        } else {
+            // Client disconnected, clean up
+            fclose($socket);
+            unset($this->clients[$key]);
+            echo "Client disconnected\n";
         }
     }
+}
+
 
     private function handleAuthenticatedClientInput($client, $input)
     {

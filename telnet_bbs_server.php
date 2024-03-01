@@ -255,5 +255,5 @@ public function login()
 
 }
 
-$server = new Server('127.0.0.1', 2324);
+$server = new Server('0.0.0.0', 2324);
 $server->start();

@@ -92,21 +92,24 @@ private function handleIncomingConnections()
 private function handleClientInteractions()
 {
     foreach ($this->clients as $key => $client) {
-        $socket = $client->getSocket();
-        if (is_resource($socket) && !feof($socket)) {
-            $input = rtrim(fgets($socket, 1024));
-            if ($client->isAuthenticated()) {
-                $this->handleAuthenticatedClientInput($client, $input);
-            } else {
-                $this->handleUnauthenticatedClientInput($client, $input);
-            }
+    $socket = $client->getSocket();
+    if (is_resource($socket) && !feof($socket)) {
+        $input = rtrim(fgets($socket, 1024));
+        if ($client->isAuthenticated()) {
+            $this->handleAuthenticatedClientInput($client, $input);
         } else {
-            // Client disconnected, clean up
-            fclose($socket);
-            unset($this->clients[$key]);
-            echo "Client disconnected\n";
+            $this->handleUnauthenticatedClientInput($client, $input);
         }
+    } else {
+        // Client disconnected, clean up
+        if (is_resource($socket)) {
+            fclose($socket);
+        }
+        unset($this->clients[$key]);
+        echo "Client disconnected\n";
     }
+  }
+
 }
 
 
